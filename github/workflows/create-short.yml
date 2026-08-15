@@ -1,0 +1,60 @@
+name: Crear Short y enviarlo a Telegram
+
+on:
+  workflow_dispatch:
+    inputs:
+      tema:
+        description: Tema del Short
+        required: true
+        default: ia_trabajo
+        type: choice
+        options:
+          - ia_trabajo
+          - testing_remoto
+          - seguridad_estafas
+  repository_dispatch:
+    types: [crear_short]
+
+permissions:
+  contents: read
+
+jobs:
+  crear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TEMA: ${{ github.event.client_payload.tema || inputs.tema || 'ia_trabajo' }}
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abrir el generador
+        run: unzip -o renacido_oro_shorts_factory.zip
+
+      - name: Instalar video y voz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install --disable-pip-version-check -r shorts_factory/requirements.txt
+
+      - name: Crear el Short
+        run: python shorts_factory/generate_short.py --topic "$TEMA"
+
+      - name: Enviar a Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          test -n "$TELEGRAM_BOT_TOKEN" || { echo "Falta TELEGRAM_BOT_TOKEN"; exit 1; }
+          test -n "$TELEGRAM_CHAT_ID" || { echo "Falta TELEGRAM_CHAT_ID"; exit 1; }
+          curl --silent --show-error --fail --max-time 300 \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo" \
+            -F "chat_id=${TELEGRAM_CHAT_ID}" \
+            -F "supports_streaming=true" \
+            -F "video=@shorts_factory/output/short.mp4;type=video/mp4" \
+            -F "caption=<shorts_factory/output/caption.txt"
