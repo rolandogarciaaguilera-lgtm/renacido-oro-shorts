@@ -53,4 +53,4 @@ jobs:
         run: |
           test -n "$TELEGRAM_BOT_TOKEN" || { echo "Falta TELEGRAM_BOT_TOKEN"; exit 1; }
           test -n "$TELEGRAM_CHAT_ID" || { echo "Falta TELEGRAM_CHAT_ID"; exit 1; }
-          curl --silent --show-error
+          curl --silent --show-error --fail -F "chat_id=$TELEGRAM_CHAT_ID" -F "video=@shorts_factory/output/short.mp4" "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendVideo"
